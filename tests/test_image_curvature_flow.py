@@ -50,6 +50,25 @@ class FakeGeminiProvider:
         raise AssertionError(f"Unexpected stage: {stage}")
 
 
+class WrappedDslGeminiProvider(FakeGeminiProvider):
+    def generate_json(
+        self,
+        *,
+        stage: str,
+        system_prompt: str,
+        payload: dict[str, Any],
+        image_paths: list[str] | None = None,
+    ) -> dict[str, Any]:
+        if stage == "surface":
+            return {"geometry_dsl": _curved_chair_dsl()}
+        return super().generate_json(
+            stage=stage,
+            system_prompt=system_prompt,
+            payload=payload,
+            image_paths=image_paths,
+        )
+
+
 class ImageCurvatureFlowTest(unittest.TestCase):
     def test_image_aware_pipeline_outputs_curved_geometry(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -65,7 +84,8 @@ class ImageCurvatureFlowTest(unittest.TestCase):
                 provider=provider,
             )
 
-            self.assertTrue(all(call["image_paths"] == [str(image_path)] for call in provider.calls))
+            self.assertEqual(provider.calls[0]["image_paths"], [str(image_path)])
+            self.assertTrue(all(call["image_paths"] == [] for call in provider.calls[1:]))
             self.assertTrue(result.validation.ok)
             self.assertIn("backrest", result.compile_result.curved_components)
             self.assertIn("armrest_left", result.compile_result.curved_components)
@@ -83,6 +103,24 @@ class ImageCurvatureFlowTest(unittest.TestCase):
             self.assertEqual(curved_types["backrest"], "nurbs_surface")
             self.assertEqual(curved_types["armrest_left"], "bezier_sweep")
             self.assertIn("reference_image_features", result.dsl)
+
+    def test_pipeline_accepts_geometry_dsl_wrapper_from_gemini(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            image_path = temp_path / "rounded_chair_reference.ppm"
+            image_path.write_text("P3\n1 1\n255\n255 255 255\n", encoding="ascii")
+
+            result = generate_cad(
+                "Create this standard premium chair.",
+                image_paths=[str(image_path)],
+                output_dir=temp_path / "out",
+                provider=WrappedDslGeminiProvider(),
+                image_policy="all",
+            )
+
+            self.assertEqual(result.dsl["unit"], "mm")
+            self.assertIn("components", result.dsl)
+            self.assertTrue(result.compile_result.artifacts["stl"].exists())
 
 
 def _curved_chair_dsl() -> dict[str, Any]:

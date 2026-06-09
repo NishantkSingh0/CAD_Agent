@@ -1,0 +1,10 @@
+python3 -m cad_agent.cli "Create This Standard Premium Chair" \                                                  
+  --image ./referenceImages/sample1.png \
+  --out outputs \
+  --timeout 240 \
+  --image-policy planner-surface
+
+
+python3 -m cad_agent.cli "create a Sphere" \                                                                  
+  --out outputs \
+  --timeout 240  

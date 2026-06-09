@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 import mimetypes
 import re
+import socket
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -13,6 +16,8 @@ from pathlib import Path
 from typing import Any
 
 from cad_agent.config import AgentConfig
+
+logger = logging.getLogger(__name__)
 
 
 class GeminiProvider:
@@ -30,6 +35,9 @@ class GeminiProvider:
         payload: dict[str, Any],
         image_paths: list[str] | None = None,
     ) -> dict[str, Any]:
+        image_paths = image_paths or []
+        started_at = time.monotonic()
+        logger.info("Gemini stage '%s' started with %d image(s)", stage, len(image_paths))
         parts: list[dict[str, Any]] = [
             {
                 "text": (
@@ -39,14 +47,22 @@ class GeminiProvider:
                 )
             }
         ]
-        for image_path in image_paths or []:
+        for image_path in image_paths:
             path = Path(image_path)
             mime_type = mimetypes.guess_type(path.name)[0] or "image/png"
+            image_bytes = path.read_bytes()
+            logger.info(
+                "Gemini stage '%s' attaching image %s (%s, %.1f KB)",
+                stage,
+                path,
+                mime_type,
+                len(image_bytes) / 1024,
+            )
             parts.append(
                 {
                     "inline_data": {
                         "mime_type": mime_type,
-                        "data": base64.b64encode(path.read_bytes()).decode("ascii"),
+                        "data": base64.b64encode(image_bytes).decode("ascii"),
                     }
                 }
             )
@@ -67,6 +83,7 @@ class GeminiProvider:
             method="POST",
         )
         try:
+            logger.info("Gemini stage '%s' sending request to model %s", stage, self.config.model)
             with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
                 data = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as exc:
@@ -74,6 +91,11 @@ class GeminiProvider:
             raise RuntimeError(f"Gemini request failed for {stage}: {detail}") from exc
         except urllib.error.URLError as exc:
             raise RuntimeError(f"Gemini request failed for {stage}: {exc}") from exc
+        except (TimeoutError, socket.timeout) as exc:
+            raise RuntimeError(
+                f"Gemini request timed out during {stage} after {self.timeout_seconds}s. "
+                "Try rerunning with a larger --timeout value."
+            ) from exc
 
         text = "".join(
             part.get("text", "")
@@ -82,7 +104,14 @@ class GeminiProvider:
         )
         if not text.strip():
             raise RuntimeError(f"Gemini returned no JSON text for {stage}.")
-        return _parse_json_object(text)
+        parsed = _parse_json_object(text)
+        logger.info(
+            "Gemini stage '%s' completed in %.1fs with keys: %s",
+            stage,
+            time.monotonic() - started_at,
+            ", ".join(sorted(parsed.keys())),
+        )
+        return parsed
 
 
 def _parse_json_object(text: str) -> dict[str, Any]:
