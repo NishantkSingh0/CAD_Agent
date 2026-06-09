@@ -33,6 +33,18 @@ def main() -> None:
         default="planner-only",
         help="Which agent stages receive raw image input. Later stages always receive planner observations as text.",
     )
+    parser.add_argument(
+        "--geometry-mode",
+        choices=["template", "llm-dsl"],
+        default="template",
+        help="Use deterministic semantic templates or ask Gemini to emit raw Geometry DSL.",
+    )
+    parser.add_argument(
+        "--compiler",
+        choices=["auto", "build123d", "mesh"],
+        default="auto",
+        help="CAD compiler backend. auto prefers Build123D/OpenCascade and falls back to mesh.",
+    )
     parser.add_argument("--verbose", action="store_true", help="Enable debug logs.")
     args = parser.parse_args()
 
@@ -45,6 +57,8 @@ def main() -> None:
             output_dir=args.out,
             provider=provider,
             image_policy=args.image_policy,
+            geometry_mode=args.geometry_mode,
+            compiler_backend=args.compiler,
         )
     except Exception as exc:
         logging.getLogger(__name__).error("CAD generation failed: %s", exc)

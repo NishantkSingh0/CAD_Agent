@@ -9,10 +9,11 @@ from pathlib import Path
 from typing import Any
 
 from cad_agent.agents import AgentPipeline
-from cad_agent.compiler import CompileResult, MeshCompiler
+from cad_agent.compiler import Build123DCompiler, CompileResult, MeshCompiler, is_build123d_available
 from cad_agent.config import AgentConfig
 from cad_agent.dsl import ValidationReport, normalize_geometry_dsl, validate_geometry_dsl
 from cad_agent.providers import GeminiProvider, LLMProvider
+from cad_agent.templates import build_lounge_tub_chair_dsl
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,8 @@ def generate_cad(
     provider: LLMProvider | None = None,
     config: AgentConfig | None = None,
     image_policy: str = "planner-only",
+    geometry_mode: str = "template",
+    compiler_backend: str = "auto",
 ) -> CADGenerationResult:
     """Run Planner -> Topology -> Dimension -> Surface -> Validate -> Compile."""
 
@@ -44,9 +47,18 @@ def generate_cad(
         logger.info("Reference image: %s", image_path)
     logger.info("Output directory: %s", output_dir)
     logger.info("Image policy: %s", image_policy)
+    logger.info("Geometry mode: %s", geometry_mode)
+    logger.info("Compiler backend: %s", compiler_backend)
 
     agent_pipeline = AgentPipeline(provider or GeminiProvider(config), image_policy=image_policy)
-    dsl = normalize_geometry_dsl(agent_pipeline.run(prompt, image_paths=image_paths))
+    if geometry_mode == "template":
+        memory = agent_pipeline.run_to_memory(prompt, image_paths=image_paths)
+        logger.info("Selected template: %s", memory.template)
+        dsl = build_lounge_tub_chair_dsl(memory)
+    elif geometry_mode == "llm-dsl":
+        dsl = normalize_geometry_dsl(agent_pipeline.run(prompt, image_paths=image_paths))
+    else:
+        raise ValueError(f"Unsupported geometry mode: {geometry_mode}")
 
     logger.info("Validating Geometry DSL")
     validation = validate_geometry_dsl(dsl)
@@ -65,8 +77,8 @@ def generate_cad(
         _write_debug_dsl(output_dir, "failed_dsl_final.json", dsl)
     validation.require_ok()
     logger.info("Validation passed")
-    logger.info("Compiling Geometry DSL into mesh artifacts")
-    compile_result = MeshCompiler().compile(dsl, output_dir)
+    logger.info("Compiling Geometry DSL")
+    compile_result = _compile_with_backend(dsl, output_dir, compiler_backend)
     logger.info(
         "Compiled %d vertices, %d faces, curved components: %s",
         len(compile_result.mesh.vertices),
@@ -77,6 +89,23 @@ def generate_cad(
         logger.info("Wrote %s: %s", artifact_type.upper(), artifact_path)
     logger.info("CAD generation completed")
     return CADGenerationResult(dsl=dsl, validation=validation, compile_result=compile_result)
+
+
+def _compile_with_backend(dsl: dict[str, Any], output_dir: Path | str, backend: str) -> CompileResult:
+    if backend == "mesh":
+        return MeshCompiler().compile(dsl, output_dir)
+    if backend in {"auto", "build123d"} and is_build123d_available():
+        try:
+            logger.info("Using Build123D/OpenCascade compiler")
+            return Build123DCompiler().compile(dsl, output_dir)
+        except Exception as exc:
+            if backend == "build123d":
+                raise
+            logger.warning("Build123D compiler failed, falling back to mesh compiler: %s", exc)
+    elif backend == "build123d":
+        raise RuntimeError("Build123D is not installed.")
+    logger.info("Using mesh compiler")
+    return MeshCompiler().compile(dsl, output_dir)
 
 
 def _write_debug_dsl(output_dir: Path | str, filename: str, dsl: dict[str, Any]) -> None:

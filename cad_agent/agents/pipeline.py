@@ -7,6 +7,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+from cad_agent.memory import DesignMemory
 from cad_agent.providers.base import LLMProvider
 
 logger = logging.getLogger(__name__)
@@ -51,6 +52,19 @@ class AgentPipeline:
     image_policy: str = "planner-only"
 
     def run(self, prompt: str, image_paths: list[str] | None = None) -> dict[str, Any]:
+        memory = self.run_to_memory(prompt, image_paths=image_paths)
+        return self._run_stage(
+            "surface",
+            {
+                "prompt": prompt,
+                "planner": memory.planner,
+                "topology": memory.topology,
+                "dimensions": memory.dimensions,
+            },
+            self._images_for_stage("surface", image_paths or []),
+        )
+
+    def run_to_memory(self, prompt: str, image_paths: list[str] | None = None) -> DesignMemory:
         image_paths = image_paths or []
         planner = self._run_stage(
             "planner",
@@ -67,15 +81,12 @@ class AgentPipeline:
             {"prompt": prompt, "planner": planner, "topology": topology},
             self._images_for_stage("dimension", image_paths),
         )
-        return self._run_stage(
-            "surface",
-            {
-                "prompt": prompt,
-                "planner": planner,
-                "topology": topology,
-                "dimensions": dimensions,
-            },
-            self._images_for_stage("surface", image_paths),
+        return DesignMemory.from_agent_outputs(
+            prompt=prompt,
+            image_paths=image_paths,
+            planner=planner,
+            topology=topology,
+            dimensions=dimensions,
         )
 
     def repair(

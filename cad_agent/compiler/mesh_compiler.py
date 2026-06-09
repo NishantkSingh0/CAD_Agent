@@ -45,10 +45,15 @@ class MeshCompiler:
             if geometry_type in {"box", "rounded_box"}:
                 part_mesh = box_mesh(geometry["width"], geometry["depth"], geometry["height"], origin)
             elif geometry_type == "cylinder":
-                part_mesh = tapered_cylinder_mesh(geometry["radius"], geometry["radius"], geometry["height"], origin)
+                axis = _vec3(geometry["axis"]) if "axis" in geometry else None
+                part_mesh = tapered_cylinder_mesh(geometry["radius"], geometry["radius"], geometry["height"], origin, axis)
             elif geometry_type == "tapered_cylinder":
                 part_mesh = tapered_cylinder_mesh(
-                    geometry["radius_top"], geometry["radius_bottom"], geometry["height"], origin
+                    geometry["radius_top"],
+                    geometry["radius_bottom"],
+                    geometry["height"],
+                    origin,
+                    _vec3(geometry["axis"]) if "axis" in geometry else None,
                 )
             elif geometry_type == "bezier_sweep":
                 curved_components.append(component["name"])

@@ -87,10 +87,9 @@ class ImageCurvatureFlowTest(unittest.TestCase):
             self.assertEqual(provider.calls[0]["image_paths"], [str(image_path)])
             self.assertTrue(all(call["image_paths"] == [] for call in provider.calls[1:]))
             self.assertTrue(result.validation.ok)
-            self.assertIn("backrest", result.compile_result.curved_components)
-            self.assertIn("armrest_left", result.compile_result.curved_components)
-            self.assertGreater(len(result.compile_result.mesh.vertices), 200)
-            self.assertGreater(len(result.compile_result.mesh.faces), 300)
+            self.assertIn("upholstered_wraparound_shell", result.compile_result.curved_components)
+            self.assertGreater(len(result.compile_result.mesh.vertices), 1800)
+            self.assertGreater(len(result.compile_result.mesh.faces), 3000)
             self.assertTrue(result.compile_result.artifacts["stl"].exists())
             self.assertTrue(result.compile_result.artifacts["obj"].exists())
             self.assertTrue(result.compile_result.artifacts["dsl"].exists())
@@ -100,8 +99,7 @@ class ImageCurvatureFlowTest(unittest.TestCase):
                 for component in result.dsl["components"]
                 if component["geometry"]["type"] in {"bezier_sweep", "nurbs_surface"}
             }
-            self.assertEqual(curved_types["backrest"], "nurbs_surface")
-            self.assertEqual(curved_types["armrest_left"], "bezier_sweep")
+            self.assertEqual(curved_types["upholstered_wraparound_shell"], "nurbs_surface")
             self.assertIn("reference_image_features", result.dsl)
 
     def test_pipeline_accepts_geometry_dsl_wrapper_from_gemini(self) -> None:
@@ -116,6 +114,7 @@ class ImageCurvatureFlowTest(unittest.TestCase):
                 output_dir=temp_path / "out",
                 provider=WrappedDslGeminiProvider(),
                 image_policy="all",
+                geometry_mode="llm-dsl",
             )
 
             self.assertEqual(result.dsl["unit"], "mm")

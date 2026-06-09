@@ -88,18 +88,31 @@ def tapered_cylinder_mesh(
     radius_bottom: float,
     height: float,
     origin: Vec3,
+    axis: Vec3 | None = None,
     segments: int = 24,
 ) -> Mesh:
     mesh = Mesh()
+    direction = _normalize(axis or (0, 0, height))
+    if axis is None:
+        axis = (0, 0, height)
+    end = (origin[0] + axis[0], origin[1] + axis[1], origin[2] + axis[2])
+    side_a = _cross(direction, (0, 1, 0))
+    if sum(value * value for value in side_a) < 1e-9:
+        side_a = _cross(direction, (1, 0, 0))
+    side_a = _normalize(side_a)
+    side_b = _normalize(_cross(direction, side_a))
+
     bottom_center = mesh.add_vertex(origin)
-    top_center = mesh.add_vertex((origin[0], origin[1], origin[2] + height))
+    top_center = mesh.add_vertex(end)
     bottom: list[int] = []
     top: list[int] = []
     for index in range(segments):
         angle = 2 * math.pi * index / segments
         cos_a, sin_a = math.cos(angle), math.sin(angle)
-        bottom.append(mesh.add_vertex((origin[0] + radius_bottom * cos_a, origin[1] + radius_bottom * sin_a, origin[2])))
-        top.append(mesh.add_vertex((origin[0] + radius_top * cos_a, origin[1] + radius_top * sin_a, origin[2] + height)))
+        bottom_offset = _add(_scale(side_a, radius_bottom * cos_a), _scale(side_b, radius_bottom * sin_a))
+        top_offset = _add(_scale(side_a, radius_top * cos_a), _scale(side_b, radius_top * sin_a))
+        bottom.append(mesh.add_vertex(_add(origin, bottom_offset)))
+        top.append(mesh.add_vertex(_add(end, top_offset)))
     for index in range(segments):
         nxt = (index + 1) % segments
         mesh.add_face(bottom_center, bottom[nxt], bottom[index])
@@ -109,7 +122,7 @@ def tapered_cylinder_mesh(
     return mesh
 
 
-def bezier_sweep_mesh(control_points: list[Vec3], radius: float, segments: int = 28, ring_size: int = 12) -> Mesh:
+def bezier_sweep_mesh(control_points: list[Vec3], radius: float, segments: int = 56, ring_size: int = 18) -> Mesh:
     path = [_quadratic_bezier(control_points, index / (segments - 1)) for index in range(segments)]
     mesh = Mesh()
     rings: list[list[int]] = []
@@ -127,7 +140,7 @@ def bezier_sweep_mesh(control_points: list[Vec3], radius: float, segments: int =
     return mesh
 
 
-def curved_surface_mesh(control_grid: list[list[Vec3]], thickness: float, u_steps: int = 12, v_steps: int = 8) -> Mesh:
+def curved_surface_mesh(control_grid: list[list[Vec3]], thickness: float, u_steps: int = 36, v_steps: int = 24) -> Mesh:
     mesh = Mesh()
     front: list[list[int]] = []
     back: list[list[int]] = []
@@ -209,3 +222,26 @@ def _normal(a: Vec3, b: Vec3, c: Vec3) -> Vec3:
     )
     length = math.sqrt(sum(value * value for value in cross)) or 1.0
     return cross[0] / length, cross[1] / length, cross[2] / length
+
+
+def _add(a: Vec3, b: Vec3) -> Vec3:
+    return a[0] + b[0], a[1] + b[1], a[2] + b[2]
+
+
+def _scale(a: Vec3, value: float) -> Vec3:
+    return a[0] * value, a[1] * value, a[2] * value
+
+
+def _cross(a: Vec3, b: Vec3) -> Vec3:
+    return (
+        a[1] * b[2] - a[2] * b[1],
+        a[2] * b[0] - a[0] * b[2],
+        a[0] * b[1] - a[1] * b[0],
+    )
+
+
+def _normalize(a: Vec3) -> Vec3:
+    length = math.sqrt(sum(value * value for value in a))
+    if length < 1e-9:
+        return (0, 0, 0)
+    return a[0] / length, a[1] / length, a[2] / length
