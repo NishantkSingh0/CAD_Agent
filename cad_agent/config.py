@@ -9,6 +9,8 @@ from pathlib import Path
 
 DEFAULT_MODEL = "gemini-2.5-pro"
 ENV_KEY_NAME = "GEMINI_2.5_PRO"
+DEFAULT_GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct"
+GROQ_ENV_KEY_NAME = "GROQ_API_KEY"
 
 
 def load_env_value(name: str, env_file: Path | str = ".env") -> str | None:
@@ -43,6 +45,8 @@ class AgentConfig:
     api_key_name: str = ENV_KEY_NAME
     env_file: Path = Path(".env")
     max_repair_attempts: int = 2
+    groq_model: str = DEFAULT_GROQ_MODEL
+    groq_api_key_name: str = GROQ_ENV_KEY_NAME
 
     @property
     def api_key(self) -> str:
@@ -52,3 +56,7 @@ class AgentConfig:
                 f"Missing Gemini API key. Set {self.api_key_name} in the environment or .env."
             )
         return value
+
+    @property
+    def groq_api_key(self) -> str | None:
+        return load_env_value(self.groq_api_key_name, self.env_file)

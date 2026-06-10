@@ -121,6 +121,24 @@ class ImageCurvatureFlowTest(unittest.TestCase):
             self.assertIn("components", result.dsl)
             self.assertTrue(result.compile_result.artifacts["stl"].exists())
 
+    def test_template_mode_uses_sphere_for_sphere_prompt(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_path = Path(temp_dir)
+            provider = FakeGeminiProvider()
+
+            result = generate_cad(
+                "create a sphere",
+                output_dir=temp_path / "out",
+                provider=provider,
+                compiler_backend="mesh",
+            )
+
+            self.assertEqual(result.dsl["template"], "sphere")
+            self.assertEqual(result.dsl["components"][0]["geometry"]["type"], "sphere")
+            self.assertIn("sphere_body", result.compile_result.curved_components)
+            self.assertTrue(result.compile_result.artifacts["stl"].exists())
+            self.assertTrue(all(call["stage"] != "surface" for call in provider.calls))
+
 
 def _curved_chair_dsl() -> dict[str, Any]:
     return {

@@ -13,7 +13,7 @@ from cad_agent.compiler import Build123DCompiler, CompileResult, MeshCompiler, i
 from cad_agent.config import AgentConfig
 from cad_agent.dsl import ValidationReport, normalize_geometry_dsl, validate_geometry_dsl
 from cad_agent.providers import GeminiProvider, LLMProvider
-from cad_agent.templates import build_lounge_tub_chair_dsl
+from cad_agent.templates import build_lounge_tub_chair_dsl, build_sphere_dsl
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,13 @@ def generate_cad(
     if geometry_mode == "template":
         memory = agent_pipeline.run_to_memory(prompt, image_paths=image_paths)
         logger.info("Selected template: %s", memory.template)
-        dsl = build_lounge_tub_chair_dsl(memory)
+        if memory.template == "lounge_tub_chair":
+            dsl = build_lounge_tub_chair_dsl(memory)
+        elif memory.template == "sphere":
+            dsl = build_sphere_dsl(memory)
+        else:
+            logger.info("No deterministic template matched; using Surface Agent for Geometry DSL")
+            dsl = normalize_geometry_dsl(agent_pipeline.run_surface(prompt, memory, image_paths=image_paths))
     elif geometry_mode == "llm-dsl":
         dsl = normalize_geometry_dsl(agent_pipeline.run(prompt, image_paths=image_paths))
     else:

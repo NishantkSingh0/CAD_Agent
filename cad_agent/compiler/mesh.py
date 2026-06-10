@@ -122,6 +122,47 @@ def tapered_cylinder_mesh(
     return mesh
 
 
+def sphere_mesh(radius: float, origin: Vec3, lat_segments: int = 24, lon_segments: int = 48) -> Mesh:
+    mesh = Mesh()
+    rings: list[list[int]] = []
+    top = mesh.add_vertex((origin[0], origin[1], origin[2] + radius))
+    bottom = mesh.add_vertex((origin[0], origin[1], origin[2] - radius))
+
+    for lat_index in range(1, lat_segments):
+        phi = math.pi * lat_index / lat_segments
+        z = radius * math.cos(phi)
+        ring_radius = radius * math.sin(phi)
+        ring: list[int] = []
+        for lon_index in range(lon_segments):
+            theta = 2 * math.pi * lon_index / lon_segments
+            ring.append(
+                mesh.add_vertex(
+                    (
+                        origin[0] + ring_radius * math.cos(theta),
+                        origin[1] + ring_radius * math.sin(theta),
+                        origin[2] + z,
+                    )
+                )
+            )
+        rings.append(ring)
+
+    first_ring = rings[0]
+    last_ring = rings[-1]
+    for lon_index in range(lon_segments):
+        nxt = (lon_index + 1) % lon_segments
+        mesh.add_face(top, first_ring[lon_index], first_ring[nxt])
+        mesh.add_face(bottom, last_ring[nxt], last_ring[lon_index])
+
+    for lat_index in range(len(rings) - 1):
+        current = rings[lat_index]
+        below = rings[lat_index + 1]
+        for lon_index in range(lon_segments):
+            nxt = (lon_index + 1) % lon_segments
+            mesh.add_face(current[lon_index], below[lon_index], below[nxt])
+            mesh.add_face(current[lon_index], below[nxt], current[nxt])
+    return mesh
+
+
 def bezier_sweep_mesh(control_points: list[Vec3], radius: float, segments: int = 56, ring_size: int = 18) -> Mesh:
     path = [_quadratic_bezier(control_points, index / (segments - 1)) for index in range(segments)]
     mesh = Mesh()

@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
-CURVED_TYPES = {"bezier_sweep", "nurbs_surface"}
+CURVED_TYPES = {"bezier_sweep", "nurbs_surface", "sphere"}
 SOLID_TYPES = {"rounded_box", "box", "tapered_cylinder", "cylinder"}
 
 
@@ -78,6 +78,10 @@ def validate_geometry_dsl(dsl: dict[str, Any]) -> ValidationReport:
 
 
 def _validate_curved_geometry(name: str, geometry: dict[str, Any], issues: list[str]) -> None:
+    if geometry.get("type") == "sphere":
+        if not _positive_number(geometry.get("radius")):
+            issues.append(f"Curved component {name} requires positive radius.")
+        return
     points = geometry.get("control_points")
     if not isinstance(points, list) or len(points) < 3:
         issues.append(f"Curved component {name} needs at least 3 control points.")

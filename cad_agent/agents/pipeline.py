@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 PROMPTS = {
     "planner": (
-        "You are the Planner Agent for a prompt-to-CAD furniture system. "
+        "You are the Planner Agent for a prompt-to-CAD system. "
         "Convert the user prompt and optional reference images into a compact visual design spec. "
         "Return short JSON only with object_intent, component_names, materials, style_notes, "
         "image_observations, and curvature_requirements. Keep image_observations to at most 6 bullets. "
@@ -26,8 +26,9 @@ PROMPTS = {
         "hierarchy so the CAD compiler avoids floating parts. Do not emit CAD code."
     ),
     "dimension": (
-        "You are the Dimension Agent. Generate realistic millimeter dimensions for furniture "
-        "using ergonomic reasoning. Keep all units in mm. Do not emit CAD code."
+        "You are the Dimension Agent. Generate realistic millimeter dimensions for the requested object. "
+        "Use domain reasoning only when relevant, such as ergonomics for furniture. "
+        "Keep all units in mm. Do not emit CAD code."
     ),
     "surface": (
         "You are the Surface Agent. Generate the Geometry DSL only. Curved furniture features "
@@ -36,7 +37,7 @@ PROMPTS = {
         "Return the DSL object itself with this exact top-level shape: "
         "{'name': string, 'unit': 'mm', 'components': [{'name': string, 'origin': [x,y,z], "
         "'connects_to': [string], 'geometry': {'type': 'rounded_box|box|tapered_cylinder|"
-        "cylinder|bezier_sweep|nurbs_surface', ...}}]}. Do not wrap it in geometry_dsl or dsl."
+        "cylinder|sphere|bezier_sweep|nurbs_surface', ...}}]}. Do not wrap it in geometry_dsl or dsl."
     ),
     "repair": (
         "You are the Repair Agent. Fix only validation issues in the Geometry DSL while "
@@ -53,6 +54,14 @@ class AgentPipeline:
 
     def run(self, prompt: str, image_paths: list[str] | None = None) -> dict[str, Any]:
         memory = self.run_to_memory(prompt, image_paths=image_paths)
+        return self.run_surface(prompt, memory, image_paths=image_paths)
+
+    def run_surface(
+        self,
+        prompt: str,
+        memory: DesignMemory,
+        image_paths: list[str] | None = None,
+    ) -> dict[str, Any]:
         return self._run_stage(
             "surface",
             {

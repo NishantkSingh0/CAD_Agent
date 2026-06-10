@@ -12,6 +12,7 @@ from cad_agent.compiler.mesh import (
     bezier_sweep_mesh,
     box_mesh,
     curved_surface_mesh,
+    sphere_mesh,
     tapered_cylinder_mesh,
 )
 from cad_agent.dsl.validation import validate_geometry_dsl
@@ -55,6 +56,9 @@ class MeshCompiler:
                     origin,
                     _vec3(geometry["axis"]) if "axis" in geometry else None,
                 )
+            elif geometry_type == "sphere":
+                curved_components.append(component["name"])
+                part_mesh = sphere_mesh(geometry["radius"], origin)
             elif geometry_type == "bezier_sweep":
                 curved_components.append(component["name"])
                 part_mesh = bezier_sweep_mesh(

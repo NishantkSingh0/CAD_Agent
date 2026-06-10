@@ -13,7 +13,7 @@ class DesignMemory:
     planner: dict[str, Any] = field(default_factory=dict)
     topology: dict[str, Any] = field(default_factory=dict)
     dimensions: dict[str, Any] = field(default_factory=dict)
-    template: str = "lounge_tub_chair"
+    template: str = "surface_agent"
     assumptions: list[str] = field(default_factory=list)
 
     @classmethod
@@ -33,11 +33,7 @@ class DesignMemory:
             topology=topology,
             dimensions=dimensions,
             template=_select_template(prompt, planner),
-            assumptions=[
-                "single image is treated as visual reference, not exact reconstruction",
-                "hidden rear geometry is inferred from furniture ergonomics",
-                "dimensions are assumed in millimeters from common lounge-chair proportions",
-            ],
+            assumptions=_assumptions(prompt, image_paths),
         )
 
     def overall(self, key: str, default: float) -> float:
@@ -51,6 +47,17 @@ class DesignMemory:
 
 def _select_template(prompt: str, planner: dict[str, Any]) -> str:
     text = f"{prompt} {planner}".lower()
+    if "sphere" in text or "ball" in text or "globe" in text:
+        return "sphere"
     if "chair" in text or "lounge" in text or "armrest" in text:
         return "lounge_tub_chair"
-    return "lounge_tub_chair"
+    return "surface_agent"
+
+
+def _assumptions(prompt: str, image_paths: list[str]) -> list[str]:
+    assumptions = ["dimensions are assumed in millimeters when not specified"]
+    if image_paths:
+        assumptions.append("reference images are treated as visual references, not exact reconstruction")
+    if "chair" in prompt.lower() or "lounge" in prompt.lower() or "armrest" in prompt.lower():
+        assumptions.append("hidden rear geometry is inferred from furniture ergonomics")
+    return assumptions

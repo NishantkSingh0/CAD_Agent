@@ -29,7 +29,7 @@ python3 -m cad_agent.cli "Create a Scandinavian lounge chair with curved armrest
 
 Default behavior:
 
-- `--geometry-mode template`: Gemini extracts visual/design memory, then a deterministic chair template builds geometry.
+- `--geometry-mode template`: Gemini extracts visual/design memory, then prompt-aware routing uses a deterministic template when one matches (`sphere`, `lounge_tub_chair`) or falls back to the Surface Agent for Geometry DSL.
 - `--image-policy planner-only`: only the Planner receives the raw image; later stages receive the compact visual observations as text.
 - `--compiler auto`: use Build123D/OpenCascade when installed, otherwise fall back to the mesh compiler.
 
@@ -49,6 +49,14 @@ python3 -m cad_agent.cli "Create a premium chair from this reference" \
   --out outputs \
   --geometry-mode llm-dsl \
   --image-policy planner-surface
+```
+
+For a simple analytic primitive:
+
+```bash
+python3 -m cad_agent.cli "create a sphere" \
+  --out outputs \
+  --timeout 40
 ```
 
 For mesh-only fallback:

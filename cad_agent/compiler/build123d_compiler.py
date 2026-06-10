@@ -40,6 +40,8 @@ class Build123DCompiler:
                 solid = _build_box(b, geometry, origin)
             elif geometry_type in {"cylinder", "tapered_cylinder"}:
                 solid = _build_cylinder(b, geometry, origin)
+            elif geometry_type == "sphere":
+                solid = _build_sphere(b, geometry, origin)
             else:
                 continue
             solids.append(solid)
@@ -94,6 +96,10 @@ def _build_cylinder(b: Any, geometry: dict[str, Any], origin: Vec3) -> Any:
     solid = _align_z_to_axis(b, solid, axis)
     midpoint = (origin[0] + axis[0] / 2, origin[1] + axis[1] / 2, origin[2] + axis[2] / 2)
     return solid.translate(midpoint)
+
+
+def _build_sphere(b: Any, geometry: dict[str, Any], origin: Vec3) -> Any:
+    return b.Sphere(float(geometry["radius"])).translate(origin)
 
 
 def _align_z_to_axis(b: Any, solid: Any, axis: Vec3) -> Any:

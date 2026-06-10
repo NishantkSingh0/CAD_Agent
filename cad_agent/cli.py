@@ -22,43 +22,17 @@ def _configure_logging(verbose: bool) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Generate CAD artifacts from a prompt and optional reference images.")
-    parser.add_argument("prompt", help="Natural language design prompt.")
-    parser.add_argument("--image", action="append", default=[], help="Reference image path. Can be repeated.")
-    parser.add_argument("--out", default="outputs", help="Output directory.")
-    parser.add_argument("--timeout", type=int, default=180, help="Gemini timeout per agent stage in seconds.")
-    parser.add_argument(
-        "--image-policy",
-        choices=["planner-only", "planner-surface", "all"],
-        default="planner-only",
-        help="Which agent stages receive raw image input. Later stages always receive planner observations as text.",
-    )
-    parser.add_argument(
-        "--geometry-mode",
-        choices=["template", "llm-dsl"],
-        default="template",
-        help="Use deterministic semantic templates or ask Gemini to emit raw Geometry DSL.",
-    )
-    parser.add_argument(
-        "--compiler",
-        choices=["auto", "build123d", "mesh"],
-        default="auto",
-        help="CAD compiler backend. auto prefers Build123D/OpenCascade and falls back to mesh.",
-    )
-    parser.add_argument("--verbose", action="store_true", help="Enable debug logs.")
-    args = parser.parse_args()
-
     _configure_logging(args.verbose)
     provider = GeminiProvider(AgentConfig(), timeout_seconds=args.timeout)
     try:
         result = generate_cad(
-            args.prompt,
-            image_paths=args.image,
-            output_dir=args.out,
+            "Create a premium chair from this reference",
+            image_paths=["./referenceImages/sample1.png"],
+            output_dir="outputs",
             provider=provider,
-            image_policy=args.image_policy,
-            geometry_mode=args.geometry_mode,
-            compiler_backend=args.compiler,
+            image_policy="all",   # ["planner-only", "planner-surface", "all"]
+            geometry_mode="template",   # ["template", "llm-dsl"]
+            compiler_backend="auto",   # ["auto", "build123d", "mesh"]
         )
     except Exception as exc:
         logging.getLogger(__name__).error("CAD generation failed: %s", exc)
